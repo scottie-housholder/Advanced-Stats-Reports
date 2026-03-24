@@ -1,0 +1,431 @@
+---
+title: 'Report 1: Regression for Modeling Diamond Prices'
+author: "Scottie Housholder"
+date: "February 25, 2026"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# Context
+
+A jewelry store is newly in business and needs help in pricing diamonds. The store wants to have a way to reasonably estimate the price of various diamonds to ensure they are making a profit. After all, it would be detrimental to the business to over-price their diamonds and lose sales and also if they under-price them.
+
+You have been hired as the statistician for this job. You have acquired data on hundreds of diamonds from [www.awesomegems.com](www.awesomegems.com) (taken July 28, 2005) that can be found in the `Diamonds` data set of the `Stat2` library. Here is a quick overview of the data.
+
+`Diamonds` is a dataset with 351 observations on the following 6 variables.
+
+| Variable   | Description                                             |
+|------------|---------------------------------------------------------|
+| Carat      | Size of the diamond (in carats)                         |
+| Color      | Coded as D (most white/bright) through J                |
+| Clarity    | Coded$^1$ as IF, VVS1, VVS2, VS1, VS2, SI1, SI2, or SI3 |
+| Depth      | Depth (as a percentage of diameter)                     |
+| PricePerCt | Price per carat                                         |
+| TotalPrice | Price for the diamond (in dollars)                      |
+
+$^1$The clarity of the diamonds ranges from IF (internally flawless) through VVS1 (very,very slightly included), VS1 (very slightly included), to SI3 (slightly included) in the order listed above.
+
+# Instructions
+
+Your report must be made using R markdown. Use the provided Rmd file for this pdf to put your answers beneath each question. Your submission must include both the Rmd file and the outputted PDF. Make sure your code, graphs, and results are displayed on the PDF clearly. When performing calculations in this report, you do not need to typeset them (but typesetting with LaTeX is welcome!)
+
+You must submit your own individual report, but you are free to consult with up to two other classmates and please identify them clearly at the beginning of your report.
+
+Each question on the assignment will be graded on a 0-3 scale with
+
+-   0: No attempt - problem has not been attempted faithfully\
+-   1: Major revisions needed - problem needs to be redone due to incompleteness or many errors\
+-   2: Minor revisions needed - problem is almost complete or there are a couple of minor errors\
+-   3: Full credit - problem is completed fully and there are no errors
+
+# Getting Started
+
+Make sure you have the `Stat2Data` library loaded (it's the library that accompanies our textbook with the datasets.) Load in the data to your `R` environment by running the command `data('Diamonds')`. Use the `head()` command to get a glimpse of the first several rows of the dataset. You should see all of the variables (columns) as listed in the table on the first page. Each row represents a diamond and the details of that diamond.
+
+```{r}
+library(Stat2Data)
+
+#Loading data
+data('Diamonds')
+head(Diamonds)
+```
+
+# Part A
+
+*This part of the report can be completed as Chapters 1 and 2 are covered.*
+
+## Model 1: Simple Linear Regression and Correlation
+
+For your first model, use `TotalPrice` as the response variable and `Carat` as the predictor.
+
+1.  (Choose) Produce a scatterplot of the relationship with the regression line drawn on it. Also compute the pearson correlation coefficient. (Hint: Use `plot()`, `abline()`, and `lm()`)
+
+```{r}
+simpleLinear <- lm(TotalPrice~Carat, data=Diamonds) #Generate model
+plot(TotalPrice~Carat, data=Diamonds)
+abline(simpleLinear, col="red")
+simple_r <- cor(Diamonds$TotalPrice, Diamonds$Carat)
+cat("Pearson correlation coefficient:", simple_r) #Report pearson coefficient
+```
+
+2.  (Fit) Produce appropriate diagnostic plots and comment on how well your data appear to fit the conditions for a simple linear model. (Don’t worry about doing transformations at this point if there are problems with the conditions. Hint: Use `summary()` on the model produced using `lm()`.)
+
+```{r}
+summary(simpleLinear)
+plot(simpleLinear)
+```
+
+The model is linear, though the Residual vs Fitted graph appears to have a curved line, meaning this model does not have an error distribution centered at zero. The data does not appear to be uniformly spread. On top of that, the data does not appear normal, either.
+
+3.  (Assess) Using the `residuals()` function, find the diamond in your sample with the largest residual (in magnitude: positive or negative) and report its carat and total price. For **that** diamond, use R to find its standardized residual and leverage (Hint: use the R commands `rstandard()` and `hatvalues()`). Would any of these values be considered unusual? Specify the criteria you use for each measure. Is this diamond also the diamond with the largest leverage?
+
+```{r}
+residIndex <- which.max(abs(residuals(simpleLinear))) #Find largest magnitude residual
+largeSimpleResid <- Diamonds[residIndex, ] #store row with largest residual
+
+cat("Index of highest magnitude residual:", residIndex, "\n")
+cat("Carat of largest residual:", largeSimpleResid$Carat, "\n")
+cat("Total Price of largest residual:", largeSimpleResid$TotalPrice, "\n")
+cat("Standardized residual:", rstandard(simpleLinear)[residIndex], "\n")
+cat("Leverage:", hatvalues(simpleLinear)[residIndex], "\n")
+cat("Max index of leverage:", which.max(hatvalues(simpleLinear)), "\n")
+
+```
+
+The standardized residual is unusual since about 95% of the data should be within 2 standard deviations of the mean, while this point is 5.81 standard deviations away.
+
+This diamond is not the diamond with the highest leverage.
+
+4.  (Assess) Compute the value of $r^2$ two ways: as the square of the correlation and using values in the outputted ANOVA table. Write a sentence that interprets the result (in context) as a percentage.
+
+```{r}
+simpleLinearAnova <- anova(simpleLinear)
+anova(simpleLinear) #View anova
+
+cat("r-squared as r^2:", simple_r^2, "\n")
+cat("r-squared from anova:", simpleLinearAnova$`Sum Sq`[1]/sum(simpleLinearAnova$`Sum Sq`), "\n")
+
+```
+
+This $r^2$ value indicates that Carat explains 86.33% of the change in TotalPrice
+
+5.  (Use) Compute using the formula discussed in class and using R a 90% confidence interval for the slope of your model. Interpret your interval. (Hint: Use `confint()`.)
+
+```{r}
+confint(simpleLinear, level=0.90)
+```
+
+We can be 95% confident that, for every one unit change in Carat, the true population mean of TotalPrice will change by between \$14124.145 and \$15152.65.
+
+6.  (Use) Test the strength of the linear relationship between your variables using each of the three methods discussed in class (see bullet-points below). State the hypotheses and how the test statistic is calculated in each case (I would like to see you compute it from the formulas). Indicate the reference distribution (t or F including degrees of freedom) and use technology to get any p-value(s). Test at the 10% significance level. One conclusion should suffice for all the tests. (You can confirm your results with R output.)
+
+    -   test for correlation\
+        Hypothesis test:\
+        $H_0$: p = 0 (there is no correlation) $H_a$: p $\neq$ 0 (there is correlation)\
+        Formula for correlation test statistic: $$t = \frac{r\sqrt{n-2}}{\sqrt{1-r^2}}$$
+
+    ```{r}
+    #Get test statistic
+    simple_cor_t <- (simple_r * sqrt(nrow(Diamonds) - 2)) / sqrt(1 - simple_r^2) 
+    #Get p-value
+    simple_cor_p <- 2 * pt(q = abs(simple_cor_t), df = nrow(Diamonds) - 2, lower.tail = FALSE) 
+    cat("Correlation p-value:", simple_cor_p, "\n")
+    ```
+
+    -   test for slope\
+        Hypothesis test:\
+        $H_0$: p = 0 (there is no relationship) $H_a$: p $\neq$ 0 (there is relationship)\
+        Formula for slope test statistic: $$t = \frac{\hat{\beta_1}}{\text{SE}_{\beta_1}}$$
+
+    ```{r}
+    simpleLinearSumm <- summary(simpleLinear)
+     #Get test statistic
+    simple_slope_t <- simpleLinearSumm$coefficients["Carat", "Estimate"]/
+                      simpleLinearSumm$coefficients["Carat", "Std. Error"]
+    #Get p-value
+    simple_slope_p <- 2 * pt(q = abs(simple_slope_t), df = nrow(Diamonds) - 2, lower.tail = FALSE)
+    cat("Slope p-value:", simple_slope_p, "\n")
+    ```
+
+    -   ANOVA for regression\
+        Hypothesis test:\
+        $H_0$: p = 0 (there is no relationship) $H_a$: p $\neq$ 0 (there is relationship)\
+        Formula for ANOVA test statistic: $$F = \frac{\text{MSModel}}{\text{MSE}}$$
+
+    ```{r}
+    simpleMSModel <- simpleLinearAnova$`Mean Sq`[1] #Get MSModel
+    simpleMSE <- simpleLinearAnova$`Mean Sq`[2] #Get MSE
+    simple_anova_F <- simpleMSModel/simpleMSE #Get F statistic
+    simple_anova_p <- pf(simple_anova_F, 1, 349, lower.tail = FALSE)
+    cat("ANOVA p-value:", simple_anova_p, "\n")
+    ```
+
+    The p values for all three tests come out to $p = 7.198432e-153$, which is significantly lower than the significance of $\alpha = 0.10$, meaning we can confidently reject the null hypotheses and state that there is a linear relationship between Carat and TotalPrice.
+
+7.  (Use) Suppose that you have found a 2-carat diamond (`Carat=2`) and are interested in getting estimates for what it might be worth. Compute the answers to the bullet points below using R and show your code with output. Write sentences that carefully interpret each of the intervals (in terms of total price of diamonds). (Hint: Use the `predict()` function))
+
+    -   predicted value for the price (also compute this from the regression equation you found)
+
+    ```{r}
+    cat("Predicted value of a 2-carat diamond:", 14638.4*2 + -7181.3)
+    ```
+
+    -   90% confidence interval for the mean price at this carat value (Hint: Use the `predict()` function with the parameter `interval = "confidence"`)
+
+    ```{r}
+    new_diamond = data.frame(Carat = 2)
+    predict(simpleLinear, newdata = new_diamond, interval = "confidence", level = 0.9)
+    ```
+
+    We are 90% confident that the mean price of a 2-carat diamond is worth somewhere between \$21521.89 and \$22669.12.
+
+    -   90% prediction interval for the price of an individual diamond of this carat value. (Hint: Use the `predict()` function with the parameter `interval = "prediction"`)
+
+    ```{r}
+    predict(simpleLinear, newdata = new_diamond, interval = "prediction", level = 0.9)
+    ```
+
+    We should expect that 90% of all 2-carat diamonds should be worth between \$17309.54 and \$26881.46.
+
+8.  (Limitations) Use the simple linear model you found to predict the total price of a 0.4-carat diamond and a 24-carat diamond. Why can we not use our model reliably to make predictions for these diamonds?
+
+    ```{r}
+    cat("Predicted value of 0.4-carat diamond:", 14638.4*.04 + -7181.3, "\n")
+    cat("Predicted value of 24-carat diamond:", 14638.4*24 + -7181.3, "\n")
+    ```
+
+    We cannot reliably make predictions for these diamonds because we do not know if the relationship between Carat and TotalPrice remains linear outside the scope of our data, and our model does not account for that. When we test for values outside the scope of our data, we can get values that make no sense like, for example, a 0.4-carat diamond being worth a negative value.
+
+## Model 2: Log Transformations of Variables
+
+Repeat problems 1-4 from above by first transforming each of the variables to $\widehat{\log(\text{TotalPrice})}$ and $\log(\text{Carat})$. Thus, your new model should be in the form $$\widehat{\log(\text{TotalPrice})} = \beta_0+\beta_1\log(\text{Carat}).$$ (Hint: You can simply make a model using the `log()` function in R as shown: `log(TotalPrice) ~ log(Carat)`.)
+
+1.  (Choose) Produce a scatterplot of the relationship with the regression line drawn on it. Also compute the pearson correlation coefficient. (Hint: Use `plot()`, `abline()`, and `lm()`)
+
+```{r}
+logLinear <- lm(log(TotalPrice)~log(Carat), data=Diamonds) #Generate model
+plot(log(TotalPrice)~log(Carat), data=Diamonds)
+abline(logLinear, col="red")
+log_r <- cor(log(Diamonds$TotalPrice), log(Diamonds$Carat))
+cat("Pearson correlation coefficient:", log_r) #Report pearson coefficient
+```
+
+2.  (Fit) Produce appropriate diagnostic plots and comment on how well your data appear to fit the conditions for a simple linear model. (Don’t worry about doing transformations at this point if there are problems with the conditions. Hint: Use `summary()` on the model produced using `lm()`.)
+
+```{r}
+summary(logLinear)
+plot(logLinear)
+```
+
+The model is linear, and, while not perfect, the Residual vs Fitted graph appears to be better than the previous model. That said, this model also does not have an error distribution centered at zero. The data does not appear to be uniformly spread. On top of that, the data does not appear normal, either.
+
+3.  (Assess) Using the `residuals()` function, find the diamond in your sample with the largest residual (in magnitude: positive or negative) and report its carat and total price. For **that** diamond, use R to find its standardized residual and leverage (Hint: use the R commands `rstandard()` and `hatvalues()`). Would any of these values be considered unusual? Specify the criteria you use for each measure. Is this diamond also the diamond with the largest leverage?
+
+```{r}
+residIndexLog <- which.max(abs(residuals(logLinear))) #Find largest magnitude residual
+largeLogResid <- Diamonds[residIndexLog, ] #store row with largest residual
+
+cat("Index of highest magnitude residual:", residIndexLog, "\n")
+cat("Carat of largest residual:", largeLogResid$Carat, "\n")
+cat("Total Price of largest residual:", largeLogResid$TotalPrice, "\n")
+cat("Standardized residual:", rstandard(logLinear)[residIndexLog], "\n")
+cat("Leverage:", hatvalues(logLinear)[residIndexLog], "\n")
+cat("Max index of leverage:", which.max(hatvalues(logLinear)), "\n")
+
+```
+
+The standardized residual is unusual since about 95% of the data should be within 2 standard deviations of the mean, while this point is -3.696 standard deviations away.
+
+This diamond is not the diamond with the highest leverage. Interestingly, the same diamond is the diamond with the highest leverage in both models.
+
+4.  (Assess) Compute the value of $r^2$ two ways: as the square of the correlation and using values in the outputted ANOVA table. Write a sentence that interprets the result (in context) as a percentage.
+
+```{r}
+logLinearAnova <- anova(logLinear)
+anova(logLinear) #View anova
+
+cat("r-squared as r^2:", log_r^2, "\n")
+cat("r-squared from anova:", logLinearAnova$`Sum Sq`[1]/sum(logLinearAnova$`Sum Sq`), "\n")
+```
+
+This $r^2$ value indicates that log(Carat) explains 93.03% of the change in log(TotalPrice)
+
+5.  Compare and contrast model 2 with model 1 from earlier. Which one is a better model and why?
+
+Model 2 is better. The correlation is stronger, the r\^2 is higher, and the data is closer to evenly spread. While still an outlier, the largest magnitude residual in model 2 is closer to the spread of the data than the largest magnitude residual in model 1. All of these point to model 2 being a better model.
+
+6.  Use this new model to make a prediction for the total price of a 2-carat diamond. Show your step-by-step computation and also show R code that computes the same predicted value.
+
+```{r}
+summary(logLinear) #View the summary of the model
+
+#Calculate predicted value using estimates from summary, transforming Carat value to fit model
+logPrediction2 <- 1.78334*log(2) + 8.73022
+Prediction2 <- 2.71828^logPrediction2 #Raise to power of e to undo log and see real value
+
+cat("Predicted value of 2-carat diamond from calculation:", Prediction2, "\n")
+
+#Reuse new_diamond, a dataframe with Carat=2 I created for a previous question
+cat("Confirming my math with R:\n")
+RLogPredict2 <- predict(logLinear, newdata = new_diamond, interval = "confidence")
+RPredict2 <- 2.71828^RLogPredict2[1] #Raise to power of e to undo log and see real value
+cat("Predicted value of 2-carat diamond from R:", RPredict2, "\n")
+```
+
+# Part B
+
+*This part of the report can be completed as Chapter 3 is covered.*
+
+## Model 3: Multiple Linear Regression with Old Variables
+
+For this model, use `TotalPrice` as the response variable and `Carat` and `Depth` as the predictors.
+
+1.  (Choose) Produce a scatterplot matrix using `pairs()` showing the relationship between `TotalPrice`, `Carat`, and `Depth` on the same plot. Also compute the pearson correlation coefficients and make some initial comments about the relationships between the variables based on the plots. (You should only have those 3 variables on your plot displayed.)
+
+```{r}
+oldVars <- lm(TotalPrice ~ Carat + Depth, data=Diamonds) #Generate the model
+pairs(Diamonds[c("TotalPrice", "Carat", "Depth")]) #Show scatterplot matrix
+oldVarsSummary <- summary(oldVars) #Save summary of oldVars
+cat("Pearson correlation coefficient:", sqrt(oldVarsSummary$r.squared)) #Report pearson coefficient
+```
+
+It looks like Carat is much more highly correlated with TotalPrice than Depth is. Depth seems to have a very similar relationship to TotalPrice and Carat.
+
+2.  (Fit) Run the model with two predictors (`Carat` and `Depth`) for price as the response variable and provide the output (both the summary and the anova for the model).
+
+```{r}
+oldVarsSummary #Display the already saved summary
+anova(oldVars) #Display anova of the model
+```
+
+3.  (Assess) Find the residual for the first diamond in your sample. Show the actual computation for this part based on your prediction equation and the data for that diamond.
+
+Prediction equation: $$TotalPrice = 1059.24 + 15087.01 Carat -134.94 Depth$$
+
+```{r}
+Diamond1Price <- as.numeric(1059.24 + 
+                              (15087.01 * Diamonds[1, ]["Carat"]) - 
+                              (134.94 * Diamonds[1, ]["Depth"]))
+
+#Calculate residual of first diamond
+Diamond1Resid <- as.numeric(Diamonds[1, ]["TotalPrice"] - Diamond1Price)
+```
+
+4.  (Assess) Assess the significance of each of the predictors in the model. Be sure to indicate the specific value(s) from the output you are using to make the assessments. Include hypotheses and conclusions in context.
+
+For both predictors, the hypothesis is:\
+$H_0: \beta_i = 0$\
+$H_a: \beta_i \neq 0$\
+
+```{r}
+oldVarsSummary
+```
+
+Even at 99% confidence, the p-values for Carat and Depth (\< 2e-16 and 1.68e-05 respectively) are significantly smaller than $\alpha = 0.01$. As such, we can reject the null hypotheses and state that both Carat and Depth are statistically significant
+
+5.  (Assess) Assess the overall effectiveness of this model (with a formal test). Again, be sure to include hypotheses and the specific value(s) you are using from the output to reach a conclusion.
+
+For the model, the hypothesis is:\
+$H_0: \beta_1 = \beta_2 = 0$\
+$H_a: \text{At least one } \beta_i \neq 0$\
+
+Given that both predictors are statistically significant, we can reject the null hypothesis and conclude the model is effective. The F-statistic of 1168 and the p-value of \< 2.2e-16 derived from the F-statistic confirm this claim.
+
+6.  (Use) What is the predicted price of a 2-carat diamond with depth 63%? Show the substitution into the equation and also show the R code that outputs the prediction.
+
+```{r}
+oldPredict <- 1059.24 + (15087.01 * 2) - (134.94 * 63)
+cat("Prediction via substitution into equation: ", oldPredict, "\n")
+
+new_diamond2 <- data.frame(Carat = 2, Depth=63)
+RoldPredict <- predict(oldVars, newdata = new_diamond2)
+cat("Prediction via predict(): ", RoldPredict, "\n")
+```
+
+While these numbers are not quite the same, the equation uses rounded values while `predict()` uses more precise values. `predict()` is a more accurate version of the same output.
+
+## Model 4: Polynomial Models with New Variables from Old
+
+1.  (Choose) Write down the complete second order model for predicting a diamond's price based on `Carat` and `Depth`. Note: This is the model before estimating the fit, so use general coefficients $\beta_i$. (Hint: You will need to use $\beta_0$ through $\beta_5$.)
+
+Second order model:\
+$\text{TotalPrice} = \beta_0 + \beta_1\text{Carat} + \beta_2\text{Depth} + \beta_3\text{Carat}^2 + \beta_4\text{Depth}^2 + \beta_5\text{Depth} \times \text{Carat}$
+
+2.  (Fit) Use R to estimate the coefficients in this model. Include the summary and anova output and write down the prediction equation with good statistical notation. (Hint: You will need to use the `I()` function in R)
+
+```{r}
+secondOrder <- lm(TotalPrice ~ Carat + Depth + I(Carat^2) + I(Depth^2) + I(Carat * Depth),
+                  data=Diamonds)
+
+summary(secondOrder)
+anova(secondOrder)
+```
+
+Prediction equation: $\text{TotalPrice} = 24338.820 + 7573.620\text{Carat} - 728.700\text{Depth} + 4761.592\text{Carat}^2 + 5.276\text{Depth}^2 - 83.891(\text{Depth} \times \text{Carat})$
+
+3.  (Assess) Show the details of a nested F-test for the significance of just the quadratic and interaction terms that involve `Depth` in this model. Include the output needed to get the information to complete the test. Show all the usual details (hypotheses, test-statistic, p-value, and an informative conclusion in context). In particular, show how the test statistic is computed by using the formula to compute the $F$-statistic: $$F = \frac{\left(\text{SSModel}_{\text{full}} - \text{SSModel}_{\text{reduced}}\right) / \left(\# \text{predictors being tested}\right)}{\text{SSE}_{\text{full}} / \left(n -k-1\right)}.$$ (Hint: You can compare your computation with the $F$-statistic generated by `R`'s in-built function `anova(reduced_model, bigger_model)`.)
+
+The hypothesis is:\
+$H_0: \beta_i = 0$ for all predictors in the subset\
+$H_a: \beta_i \neq 0$ for at least one predictor in the subset\
+
+```{r}
+#Get SSModel for full model
+anova(secondOrder) #View anova
+secondOrderAnova <- anova(secondOrder)
+
+#Get all cols except residuals
+SSMfull <- sum(secondOrderAnova$`Sum Sq`[1:length(secondOrderAnova$`Sum Sq`)-1])
+SSEfull <- secondOrderAnova$`Sum Sq`[length(secondOrderAnova$`Sum Sq`)]
+
+
+#Generate reduced model
+reducedModel <- lm(TotalPrice ~ Depth + I(Depth^2) + I(Depth * Carat), data=Diamonds)
+
+#Get SSModel for reduced model
+anova(reducedModel) #View anova
+reducedAnova <- anova(reducedModel)
+
+#Get all cols except residuals
+SSMreduced <- sum(reducedAnova$`Sum Sq`[1:length(reducedAnova$`Sum Sq`)-1])
+
+degrees <- nrow(Diamonds) - 5 - 1 #Degrees of freedom for F test
+
+#Calculate F-Test
+secondOrderFTest <- ((SSMfull - SSMreduced) / 2) / (SSEfull / degrees)
+cat("F-statistic: ", secondOrderFTest, "\n")
+
+#Confirm F-statistic with R
+anova(reducedModel, secondOrder)
+
+#Display p-value
+cat("P-value: ", anova(reducedModel, secondOrder)$`Pr(>F)`[2], "\n")
+```
+
+With a p-value as low as 1.451933e-38, we can confidently reject the null hypothesis. This means at least one of either Carat or $\text{Carat}^2$ is valuable to the original model.
+
+4.  (Use) If you determined unimportant predictors in the previous question, then re-write the new model you have. Use this model to make a prediction of the price of a 2-carat diamond with depth 63% by showing your substitution into your linear regression equation.
+
+```{r}
+#Create variables for more readable substitution
+Carat <- 2
+Depth <- 63
+
+#Substitute into regression equation
+secondOrderPredict <- 24338.820 + (7573.620 * Carat) - (728.700 * Depth) + 
+  (4761.592 * (Carat^2)) + (5.276 * (Depth^2)) - (83.891 * Depth * Carat)
+
+cat("Prediction via substitution into equation: ", secondOrderPredict, "\n")
+```
+
+5.  (Use) Compare all of the models from Part A and Part B developed thus far. Which model would you recommend to the jewelry business and why?
+
+```{r}
+#Compare summaries of all models:
+summary(simpleLinear) #Model 1
+summary(logLinear) #Model 2
+summary(oldVars) #Model 3
+summary(secondOrder) #Model 4
+```
+Looking at the summaries of all four models, I would argue that the best model is either model 2 (log model) or model 4 (second order model). They have the highest $r^2$ values. Between the two of them, I would recommend model 4. While its $r^2$ value is practically the same as model 2's, model 4 has reached this value while also accounting for another variable. This will likely lead to increased accuracy as including depth allows for more aspects of the diamond to be inspected.

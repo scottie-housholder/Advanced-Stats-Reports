@@ -1,0 +1,324 @@
+---
+title: 'Report 2: Logistic Regression for Modeling Leukemia Treatment'
+author: "Scottie Housholder"
+date: "March 11, 2026"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# Context
+
+A study involved 51 untreated adult patients with acute myeloblastic leukemia who were given a course of treatment, after which they were assessed as to their response. To respond to treatment means that the treatment helps to fight back at the leukemia.
+
+The data set contains the following 9 variables for 51 observations.
+
+| Variable | Description |
+|---------------------|---------------------------------------------------|
+| `Age` | Age at diagnosis (in years) |
+| `Smear` | Differential percentage of blasts |
+| `Infil` | Percentage of absolute marrow leukemia infiltrate |
+| `Index` | Percentage labeling index of the bone marrow leukemia cells |
+| `Blasts` | Absolute number of blasts, in thousands |
+| `Temp` | Highest temperature of the patient prior to treatment (in tenths of °F) |
+| `Resp` | 1=responded to treatment or 0=failed to respond |
+| `Time` | Survival time from diagnosis (in months) |
+| `Status` | 0=dead or 1=alive |
+
+# Instructions
+
+Your report must be made using R markdown. Your submission must include both the Rmd file and the outputted PDF. Make sure your code, graphs, and results are displayed on the PDF clearly. When performing calculations in this report, you do not need to typeset them (but typesetting with LaTeX is welcome!)
+
+You must submit your own individual report, but you are free to consult with up to two other classmates and please identify them clearly at the beginning of your report.
+
+Each question on the assignment will be graded on a 0-3 scale with
+
+-   0: No attempt - problem has not been attempted faithfully\
+-   1: Major revisions needed - problem needs to be redone due to incompleteness or many errors\
+-   2: Minor revisions needed - problem is almost complete or there are a couple of minor errors\
+-   3: Full credit - problem is completed fully and there are no errors
+
+# Getting Started
+
+The data was saved in the csv file provided. Once you download it, save it in the same location on your computer as your rmd file. You can load the data into your Rproject environment by running the following:
+
+```{r}
+# setting header to TRUE reads the first row of the csv as titles for the columns
+leukemia_df <- read.csv("leukemia_data.csv", header=TRUE)
+```
+
+# Part A
+
+*This part of the report can be completed as Chapter 9 is covered.*
+
+## Model 1: Logistic Regression Using `Age`
+
+1.  Write down the equation for a binary logistic regression model using `Age` as the predictor variable to predict the probability of `Resp`. Use the Logit form of the logistic regression model.
+
+$\text{logit(Resp)} = \frac{e^{\beta_0+\beta_1\text{Age}}}{1+e^{\beta_0+\beta_1\text{Age}}}$
+
+2.  Fit a logistic model using `Resp` as the response variable and `Age` as the predictor variable. Interpret the slope coefficient (in terms of an odds ratio) and interpret the test for the slope. Be sure to do these in the context of your data situation. (Hint: Use the `glm()` function with the parameter `family="binomial"`. For your own knowledge, see what happens if you don't set `family="binomial"`.)
+
+```{r}
+model1 <- glm(Resp ~ Age, data=leukemia_df, family="binomial")
+summary(model1)
+cat("Odds ratio for model 1 slope: ", as.numeric(exp(coef(model1)["Age"])), "\n")
+```
+
+For every unit increase in age, the odds of response to the treatment are multiplied by 0.954.
+
+\
+Given the low p-value of 0.0166 found in the model summary, we can conclude that `Age` does have an effect on the model.
+
+3.  Compute a 95% confidence interval for your slope and use it to find a confidence interval for the odds ratio. Does your interval around the odds ratio include the value 1? Why does that matter?
+
+```{r}
+model1_conf <- exp(confint(model1))
+model1_conf
+```
+
+The interval around the odds ratio does not include 1. This is important because 1 being in the interval indicates the possibility of no change due to the multiplicative nature of logistic regression.
+
+4.  Assess the model by generating a plot of the logistic fit. Comment on what you learn from the plot. How good is this logistic model at modeling `Resp`? (Hint: You may want to use the `curve()` function as used in the R manual).
+
+```{r}
+plot(Resp ~ Age, data=leukemia_df)
+curve(predict(model1, data.frame(Age=x), type="response"), add=TRUE)
+```
+
+It looks like this logistic model is not very good at modeling `Resp`. The curve is not steep at all because there is much overlap. From this poor model, it appears that it slightly trends more towards older people not responding to treatment.
+
+5.  Show (by hand) how to use the fitted model for predicting the probability of response to treatment for someone who is 50 years old and has a survival time from diagnosis of 5 months. Using a 0.5 threshold, does your calculation suggest this person will respond to the treatment or fail to respond? (Hint: Check your work by using the `predict()` function and setting the parameter `type="response"`. For your own knowledge, investigate what happens if you don't set `type="response"`.)
+
+```{r}
+#Look at summary to get equation
+summary(model1)
+
+model1_predict <- exp(2.19678 - (0.04676 * 50))/(1 + exp(2.19678 - (0.04676 * 50)))
+
+#Confirm my calculation with predict()
+model1_predict
+as.numeric(predict(model1, data.frame(Age=50), type="response"))
+```
+
+Using a 0.5 threshold, my calculations suggest that the patient will fail to respond to treatment.
+
+6.  Use the likelihood ratio test (LRT) to assess the utility of this simple logistic regression model. Set up the hypotheses, report the G-statistic, the associated p-value, and the interpretation in context of the scenario.(Hint: You will need to save another model that does not use any predictors and then compare it to the model using `Age` that you have developed. Use `anova()` with `test="LRT"`.)
+
+```{r}
+#Generate null model
+null_model <- glm(Resp ~ 1, data=leukemia_df, family="binomial")
+
+#Save and view LRT
+model1_LRT <- anova(null_model, model1, test="LRT")
+anova(null_model, model1, test="LRT")
+
+#Report values
+cat("G_statistic for model 1: ", model1_LRT$Deviance[2], "\n")
+cat("P-value for model 1: ", model1_LRT$`Pr(>Chi)`[2], "\n")
+```
+
+Given the p-value of 0.01066, we can be 95% confident that the model is more effective than the null model.
+
+## Model 2: Logistic Regression Using `Time`
+
+Repeat exercises 1-6 from the previous section with `Resp` as the response variable and `Time` as the single predictor variable.
+
+1.  Write down the equation for a binary logistic regression model using `Time` as the predictor variable to predict the probability of `Resp`. Use the Logit form of the logistic regression model.
+
+$\text{logit(Resp)} = \frac{e^{\beta_0+\beta_1\text{Time}}}{1+e^{\beta_0+\beta_1\text{Time}}}$
+
+2.  Fit a logistic model using `Resp` as the response variable and `Time` as the predictor variable. Interpret the slope coefficient (in terms of an odds ratio) and interpret the test for the slope. Be sure to do these in the context of your data situation. (Hint: Use the `glm()` function with the parameter `family="binomial"`. For your own knowledge, see what happens if you don't set `family="binomial"`.)
+
+```{r}
+model2 <- glm(Resp ~ Time, data=leukemia_df, family="binomial")
+summary(model2)
+cat("Odds ratio for model 2 slope: ", as.numeric(exp(coef(model2)["Time"])), "\n")
+```
+
+For every unit increase in time, the odds of response to the treatment are multiplied by 1.714877.
+
+\
+Given the low p-value of 0.0166 found in the model summary, we can conclude that `Time` does have an effect on the model.
+
+3.  Compute a 95% confidence interval for your slope and use it to find a confidence interval for the odds ratio. Does your interval around the odds ratio include the value 1? Why does that matter?
+
+```{r}
+model2_conf <- exp(confint(model2))
+model2_conf
+```
+
+The interval around the odds ratio does not include 1. This is important because 1 being in the interval indicates the possibility of no change due to the multiplicative nature of logistic regression.
+
+4.  Assess the model by generating a plot of the logistic fit. Comment on what you learn from the plot. How good is this logistic model at modeling `Resp`? (Hint: You may want to use the `curve()` function as used in the R manual).
+
+```{r}
+plot(Resp ~ Time, data=leukemia_df)
+curve(predict(model2, data.frame(Time=x), type="response"), add=TRUE)
+```
+
+This logistic model appears to be very good at modeling `Resp`. The curve is very steep due to minimal overlap. From this model, it appears that people who live longer after diagnosis tend to be more likely to respond to the treatment.
+
+5.  Show (by hand) how to use the fitted model for predicting the probability of response to treatment for someone who is 50 years old and has a survival time from diagnosis of 5 months. Using a 0.5 threshold, does your calculation suggest this person will respond to the treatment or fail to respond? (Hint: Check your work by using the `predict()` function and setting the parameter `type="response"`. For your own knowledge, investigate what happens if you don't set `type="response"`.)
+
+```{r}
+#Look at summary to get equation
+summary(model2)
+
+model2_predict <- exp(-4.6663 + (0.5393 * 5))/(1 + exp(-4.6663 + (0.5393 * 5)))
+
+#Confirm my calculation with predict()
+model2_predict
+as.numeric(predict(model2, data.frame(Time=5), type="response"))
+```
+
+Using a 0.5 threshold, my calculations suggest that the patient will fail to respond to treatment.
+
+6.  Use the likelihood ratio test (LRT) to assess the utility of this simple logistic regression model. Set up the hypotheses, report the G-statistic, the associated p-value, and the interpretation in context of the scenario.(Hint: You will need to save another model that does not use any predictors and then compare it to the model using `Time` that you have developed. Use `anova()` with `test="LRT"`.)
+
+```{r}
+#Save and view LRT
+model2_LRT <- anova(null_model, model2, test="LRT")
+anova(null_model, model2, test="LRT")
+
+#Report values
+cat("G_statistic for model 2: ", model2_LRT$Deviance[2], "\n")
+cat("P-value for model 2: ", model2_LRT$`Pr(>Chi)`[2], "\n")
+```
+
+Given the p-value of 8.435746e-13, we can be confident that the model is more effective than the null model.
+
+7.  Take a step back and consider the limitations of Model 2. There is at least one major issue with using `Time` to predict `Resp`. Consider what these variables mean and explain why this model would not be practically useful. (This illustrates the importance of understanding the context of your data before jumping into doing statistical modeling).
+
+Using `Time` to predict `Resp` is not practically useful because people who die do not have the time that those who survive do. Those who had a value of $Time = 1$, for example, may have died before they would have had a chance to respond to the treatment. A variable that can involve removal the test prematurely (like death) may make for a limited model.
+
+# Part B
+
+*This part of the report can be completed as Chapter 10 is covered.*
+
+## Model 3: Multiple Logistic Regression (Full Model)
+
+1.  Write down the equation for a multiple logistic regression model using all six variables (exclude `Time` and `Status`) to predict the probability of `Resp`. Use the Logit form of the logistic regression model.
+
+$\text{logit(Resp)}=\beta_0+\beta_1\text{Age}+\beta_2\text{Smear}+\beta_3\text{Infil}+\beta_4\text{Index}+\beta_5\text{Blasts}+\beta_6\text{Temp}$
+
+2.  Fit a multiple logistic regression model to model 3. State the predictor with the highest p-value in the summary output. (You should see that it's p-value is greater than 0.9.) Interpret what this means in context.
+
+```{r}
+model3 <- glm(Resp ~ Age + Smear + Infil + Index + Blasts + Temp, 
+              data = leukemia_df, family = "binomial")
+
+summary(model3)
+```
+
+The predictor with the highest p-value is Smear, boasting a p-value of 0.90677. This high p-value means that Smear is not statistically significant when the other five predictors are in the model.
+
+3.  Investigate why the predictor you stated in the previous question has such a high p-value. One reason might be that it is highly correlated with another predictor or combination of predictors. What other predictor(s) is it highly correlated with? (Hint: It may be helpful to analyze a matrix scatterplot or the matrix of correlations using `cor()`.)
+
+```{r}
+cor(leukemia_df)
+pairs(leukemia_df)
+```
+
+Smear is highly correlated with Infil.
+
+4.  Based on values from a summary of your model 3, which of the six pretreatment variables appear to add to the predictive power of the model (i.e. which predictors appear to be significant), given that other variables are in the model?
+
+The most significant variables are Temp, Index, and Age given that the other variables are in the model.
+
+5.  Specifically, interpret the relationship (if any) between `Age` and `Resp` and also between `Temp` and `Resp` indicated in the fitted model 3. Use the coefficients to help you make statements about the probability of response and the odds ratio. (i.e. State what happens to the odds of responding and the probability of responding for a 1 unit increase in each of those predictors separately.)
+
+```{r}
+#Save coefficients in variables
+model3_summary <- summary(model3)
+model3_age <- model3_summary$coefficients[2]
+model3_temp <- model3_summary$coefficients[7]
+
+#Calculate odds and probabilities
+age_odds <- exp(model3_age)
+age_prob <- age_odds/(1+age_odds)
+temp_odds <- exp(model3_temp)
+temp_prob <- temp_odds/(1+temp_odds)
+
+#Report odds and probabilities
+cat("For every 1 unit increase in Age, the odds of Resp are multiplied by a fatcor of", 
+    age_odds, "\n")
+cat("For every 1 unit increase in Age, the probability of Resp are increased by", 
+    age_prob, "\n")
+cat("For every 1 unit increase in Temp, the odds of Resp are multiplied by a fatcor of", 
+    temp_odds, "\n")
+cat("For every 1 unit increase in Temp, the probability of Resp are increased by", 
+    temp_prob, "\n")
+```
+
+## Model 4: Multiple Logistic Regression (Reduced Model)
+
+6.  Write down the equation for a multiple logistic regression model using just `Temp`, `Age`, `Index` to predict the probability of `Resp`. Use the Logit form of the logistic regression model.
+
+$\text{logit(Resp)}=\beta_0+\beta_1\text{Temp}+\beta_2\text{Age}+\beta_3\text{Index}$
+
+7.  Use a nested likelihood ratio (drop-in-deviance) test to see if the model that excludes precisely the non-significant variables seen in model 3 is a reasonable choice for a final model (model 4). Set up the hypotheses, report the relevant test statistic, report the conclusion, and interpret your results in context.
+
+Hypothesis:\
+$H_0: \beta_1 = \beta_2 =...= \beta_k = 0$\
+$H_a: \text{At least one } \beta_i \ne 0$
+
+```{r}
+#Generate model4
+model4 <- glm(Resp ~ Temp + Age + Index, data=leukemia_df, family="binomial")
+
+#Perform drop-in-deviance test
+anova(model4, model3, test="LRT")
+
+#Report test statistic and p-value
+cat("G-statistic: ", anova(model4, model3, test="LRT")$Deviance[2], "\n")
+cat("p-value: ", anova(model4, model3, test="LRT")$`Pr(>Chi)`[2], "\n")
+```
+
+Due to the high p-value, we fail to reject the null hypothesis at $\alpha=0.05$. We can reduce the model to $\text{logit(Resp)}=\beta_0+\beta_1\text{Temp}+\beta_2\text{Age}+\beta_3\text{Index}$
+
+8.  Using model 4, predict the probability of a successful response to treatment for an individual who is 46 years old with `Index=15` and had their highest body temperature at 99.8°F before the treatment. (Hint: take a look at the `Temp` column of the dataset carefully; you cannot just plug in `Temp=99.8` into your model!)
+
+```{r}
+predict(model4, data.frame(Age=45, Index=15, Temp=998), type="response")
+```
+
+9.  Comment on how your model may be used in the context of treating leukemia. What shortcomings might your modeling technique have statistically and practically? You need to identify at least 2 meaningful limitations.
+
+One issue with this technique is that it might discourage someone from trying this treatment because the probability of response was low. In a situation like that, even a low chance of response is likely worth taking, and discouraging that because it's below 50% is not good.\
+
+A second issue is that, while the model does account for things that effect the immune system like age and temperature, there are a lot of other variables out there that may drastically change a patients chances of responding to the treatment. While it is infeasible to track everything, age and temp might not be enough to account for lurking variables.
+
+# Part C
+
+## Reflection on Facebook Experiment on Users using Statistics
+
+Now that you have seen and constructed a variety of regression models, you will read about an application of regression to a real research experiment conducted by Facebook in 2012. The research was published in 2014 in PNAS (Proceedings of the National Academy of Sciences of the United States of America) which is considered a prestigious and influential scientific journal.
+
+Read the research publication article at <https://www.pnas.org/doi/full/10.1073/pnas.1320040111>. It is titled, "Experimental evidence of massive-scale emotional contagion through social networks." Respond to the following prompts with at least a one page reflection total. This reflection should prepare you for a class discussion on this article.
+
+1.  Data and Statistics: How did the researchers obtain the data they worked with? What sorts of statistical methods and techniques did they use? Research into what the methods are and describe them more in detail. Compare and contrast their statistical methods what you have learned in class. What was the question they set out to address and what did they conclude?
+
+The researchers obtained their data by manipulating the New Feeds of 689,003 Facebook users and monitoring their emotions indicated by their posts. They ended up with over 3 million posts' worth of data. They used Poisson regression, a method that models discrete, non-negative integers, to model overall posting rate, and they weighted the regression using percent of posts emitted. Then, to answer their question, they used weighted linear regression to predict the percentage that words would be positive or negative, and they used the likelihood that the user would have a post removed from their feed as the weight. A weighted linear regression functions similarly to linear regression, but it introduces a weighting system to normalize the data. They wanted to answer whether emotional contagion can occur without nonverbal cues, and they concluded that emotional contagion can occur without verbal cues.
+
+2.  Ethics: Why was this experiment so controversial? What is your opinion on the methods of this research? Discuss a biblical basis for your position on conducting this experiment on user news feeds.
+
+This experiment was controversial because none of the users involved knew they were a part of the study, yet this study was not purely observational. Because the researchers manipulated users' news feeds and assigned them to different categories, this became an experiment. While the researchers claimed they had informed consent, the users were, like mentioned, entirely unaware of this study. The researchers claimed: "LIWC was adapted to run on the Hadoop Map/Reduce system  and in the News Feed filtering system, such that no text was seen by the researchers. As such, it was consistent with Facebook’s Data Use Policy, to which all users agree prior to creating an account on Facebook, constituting informed consent for this research." They basically found a loophole and used the terms and conditions nobody read as their informed consent.  
+
+I believe this experiment is highly unethical. This sort of thing has an emotional effect on a person, especially if its for as long as a week, and emotionally manipulating people (regardless of if it's one person or hundreds of thousands) without their knowledge or consent is very, very wrong. These people have lives outside of their time on Facebook that were effected by this. There are many stories in the Bible relating to manipulation and deception, and it is never once painted in a positive light. Satan himself is called a deceiver and the "father of lies" in John 8:44. These researchers deceived almost 700,000 people, and that goes against all the Bible teaches about truth.
+
+3.  Critique: How would you revise this experiment or change the research question so the methods of obtaining data, performing statistics on it, and publishing the results become less concerning?
+
+I would revise this experiment to make it become purely observational. There were clearly enough Facebook users to have a ton of data to the point that manipulating their news feeds was not necessary. They very easily could have just observed users who had a high quantity of friends posting positive things or negative things and gotten similar, but more honest, data. Their control could have been people who were seeing emotionally neutral posts during the span of the study. If they were to take this route, they also could have extended the experiment to go on much longer since they weren't affecting the users' experiences at all. If they went for a month instead of a week, for example, the researchers could have gathered approximately 4 times as much data and observed what happens when a user's news feed naturally changes from one emotion to the other over time. If this study becomes observational, that means the statistics would change as well. The researchers would no longer be able to weight their models by posts omitted, so they would either need to not weight the models or find something different to use as a weight. 
+
+If the researchers were to have changed the study to be observational, their sorry excuse for informed consent would be less concerning since there would have been no manipulation involved. I still think they should have found a better way to get informed consent, maybe something like an easily visible option to opt out of the study or something, but moving away from the manipulation is a good start.
+
+To give you more context, here is a direct quote from an article written by Gregory S. McNeal at Forbes titled ["Facebook Manipulated User News Feeds To Create Emotional Responses"](https://www.forbes.com/sites/gregorymcneal/2014/06/28/facebook-manipulated-user-news-feeds-to-create-emotional-contagion/?sh=466e079539dc):
+
+> Facebook conducted a massive psychological experiment on 689,003 users, manipulating their news feeds to assess the effects on their emotions. The details of the experiment were published in an article entitled "Experimental Evidence Of Massive-Scale Emotional Contagion Through Social Networks" published in the journal Proceedings of the National Academy of Sciences of the United States of America.
+>
+> The short version is, Facebook has the ability to make you feel good or bad, just by tweaking what shows up in your news feed.
+>
+> The experiment tested whether emotional contagion occurs between individuals on Facebook, a question the authors (a Facebook scientist and two academics) tested by using an automated system to reduce the amount of emotional content in Facebook news feeds. The authors found that when they manipulated user timelines to reduce positive expressions displayed by others "people produced fewer positive posts and more negative posts; when negative expressions were reduced, the opposite pattern occurred."
+>
+> The results suggest that "emotions expressed by others on Facebook influence our own emotions, constituting experimental evidence for massive-scale contagion via social networks." For a long time research on emotional contagion was premised on the need for in-person and nonverbal cues, this experiment suggests "in-person interaction and nonverbal cues are not strictly necessary for emotional contagion, and that the observation of others’ positive experiences constitutes a positive experience for people."
